@@ -5,6 +5,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.tahirabbas.shieldup.data.ApiKeyRepository
 import com.tahirabbas.shieldup.data.CallLogRepository
 import com.tahirabbas.shieldup.data.CodewordRepository
 import com.tahirabbas.shieldup.data.FamilyContactRepository
@@ -39,6 +40,7 @@ fun ShieldUpNavGraph(
     contactRepository: FamilyContactRepository,
     logRepository: CallLogRepository,
     deviceRepository: KnownDeviceRepository,
+    apiKeyRepository: ApiKeyRepository,
     navController: NavHostController = rememberNavController()
 ) {
     NavHost(navController = navController, startDestination = Routes.HOME) {
@@ -86,7 +88,7 @@ fun ShieldUpNavGraph(
         }
 
         composable(Routes.LINK_CHECKER) {
-            LinkCheckerScreen(onBack = { navController.popBackStack() })
+            LinkCheckerScreen(apiKeyRepository = apiKeyRepository, onBack = { navController.popBackStack() })
         }
 
         composable(Routes.SECURITY_CHECKUP) {
@@ -106,6 +108,7 @@ fun ShieldUpNavGraph(
 
         composable(Routes.SETTINGS) {
             SettingsScreen(
+                apiKeyRepository = apiKeyRepository,
                 onBack = { navController.popBackStack() },
                 onOpenCodeword = { navController.navigate(Routes.CODEWORD) },
                 onOpenContacts = { navController.navigate(Routes.CONTACTS) }

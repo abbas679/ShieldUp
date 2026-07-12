@@ -22,7 +22,7 @@ Set a private family codeword, shared in person, never over text or a call. When
 
 ## Module 2: Check a Link
 
-Paste a link, or the whole message it came in. ShieldUp extracts the actual URL from the text and checks it separately from the surrounding wording, looking for suspicious domain endings, URL shorteners, urgency language, lookalike brand domains, and raw IP addresses used instead of a normal domain name. Presented as advisory signals, not a definitive verdict, since no local tool can reliably classify a URL as malicious offline.
+Paste a link, or the whole message it came in. ShieldUp extracts the actual URL from the text and checks it two ways. First, local wording pattern checks look for suspicious domain endings, URL shorteners, urgency language, lookalike brand domains, and raw IP addresses. Second, if you add a free Google Safe Browsing API key in Settings, the URL is checked against Google's own live malware and phishing database, the same one Chrome and Android itself use. The local patterns alone will miss real malicious links, since attackers constantly rotate through fresh, ordinary looking domains, so the Safe Browsing key is what turns this from a rough guess into genuine detection.
 
 ## Module 3: Security Checkup
 

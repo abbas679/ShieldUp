@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import com.tahirabbas.shieldup.data.ApiKeyRepository
 import com.tahirabbas.shieldup.data.CallLogRepository
 import com.tahirabbas.shieldup.data.CodewordRepository
 import com.tahirabbas.shieldup.data.FamilyContactRepository
@@ -21,6 +22,7 @@ class MainActivity : ComponentActivity() {
         val contactRepository = FamilyContactRepository(applicationContext)
         val logRepository = CallLogRepository(applicationContext)
         val deviceRepository = KnownDeviceRepository(applicationContext)
+        val apiKeyRepository = ApiKeyRepository(applicationContext)
 
         setContent {
             ShieldUpTheme {
@@ -29,7 +31,8 @@ class MainActivity : ComponentActivity() {
                         codewordRepository = codewordRepository,
                         contactRepository = contactRepository,
                         logRepository = logRepository,
-                        deviceRepository = deviceRepository
+                        deviceRepository = deviceRepository,
+                        apiKeyRepository = apiKeyRepository
                     )
                 }
             }
