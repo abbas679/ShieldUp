@@ -3,6 +3,7 @@ package com.tahirabbas.shieldup.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -31,8 +32,8 @@ fun LinkCheckerScreen(onBack: () -> Unit, sharedText: String? = null) {
     ) { padding ->
         Column(modifier = Modifier.padding(padding).padding(16.dp)) {
             Text(
-                "Paste a link or suspicious message below. This checks for known " +
-                        "scam patterns — it's a helpful signal, not a guarantee.",
+                "Paste a link, or the whole message it came in. This checks for known " +
+                        "scam patterns, it's a helpful signal, not a guarantee.",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
@@ -41,6 +42,7 @@ fun LinkCheckerScreen(onBack: () -> Unit, sharedText: String? = null) {
                 value = input,
                 onValueChange = { input = it; result = null },
                 label = { Text("Link or message text") },
+                placeholder = { Text("e.g. \"Your account is suspended, verify now at bit.ly/xyz\"") },
                 minLines = 3,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -56,6 +58,21 @@ fun LinkCheckerScreen(onBack: () -> Unit, sharedText: String? = null) {
 
             result?.let { res ->
                 Spacer(modifier = Modifier.height(20.dp))
+
+                if (res.extractedUrl != null) {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F1F1))) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(res.extractedUrl, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
                 val (color, label) = when (res.riskLevel) {
                     LinkCheckHelper.RiskLevel.HIGH -> Color(0xFFC53030) to "High caution advised"
                     LinkCheckHelper.RiskLevel.MEDIUM -> Color(0xFFB7791F) to "Some warning signs"
@@ -67,14 +84,13 @@ fun LinkCheckerScreen(onBack: () -> Unit, sharedText: String? = null) {
                         if (res.warnings.isEmpty()) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                "Still, always verify unexpected requests directly with the sender " +
-                                        "through a separate, known channel.",
+                                "Still, always verify unexpected requests directly with the sender through a separate, known channel.",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         } else {
                             Spacer(modifier = Modifier.height(8.dp))
-                            res.warnings.forEach {
-                                Text("• $it", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 2.dp))
+                            res.warnings.forEach { warning ->
+                                Text("• $warning", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 2.dp))
                             }
                         }
                     }
