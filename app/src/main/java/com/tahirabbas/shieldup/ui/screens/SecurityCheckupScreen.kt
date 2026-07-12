@@ -75,7 +75,12 @@ fun SecurityCheckupScreen(onBack: () -> Unit) {
 
             Card(
                 onClick = {
-                    context.startActivity(Intent(Settings.ACTION_PRIVACY_SETTINGS))
+                    try {
+                        context.startActivity(Intent(Settings.ACTION_PRIVACY_SETTINGS))
+                    } catch (e: Exception) {
+                        // Some OEM builds don't expose this exact settings screen; fail silently
+                        // rather than crash, since this is a convenience shortcut, not core functionality.
+                    }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {

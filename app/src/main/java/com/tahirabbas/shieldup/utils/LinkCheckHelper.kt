@@ -1,58 +1,73 @@
 package com.tahirabbas.shieldup.utils
 
 /**
- * Pattern-based phishing/scam link heuristics. Deliberately framed as
- * advisory signals, not a definitive verdict — there's no local API that
- * can reliably classify a URL as malicious offline. This catches common,
- * well-known scam patterns; it will miss novel ones and can false-positive
- * on legitimate unusual URLs. Always presented to the user as "signs to
- * consider," never as "this IS a scam."
+ * Pattern-based phishing/scam heuristics. Deliberately framed as advisory
+ * signals, not a definitive verdict; there is no offline API that can
+ * reliably classify a URL as malicious. This catches common, well-known
+ * scam patterns and will miss novel ones or false-positive on unusual but
+ * legitimate URLs. Always presented to the user as signs to weigh, not a verdict.
  */
 object LinkCheckHelper {
 
-    data class LinkCheckResult(val warnings: List<String>, val riskLevel: RiskLevel)
+    data class LinkCheckResult(
+        val warnings: List<String>,
+        val riskLevel: RiskLevel,
+        val extractedUrl: String?
+    )
 
     enum class RiskLevel { LOW, MEDIUM, HIGH }
+
+    private val URL_REGEX = Regex("(https?://\\S+|www\\.\\S+|\\b[a-zA-Z0-9-]+\\.[a-zA-Z]{2,}(?:/\\S*)?)")
 
     private val SUSPICIOUS_TLDS = listOf(".xyz", ".top", ".click", ".loan", ".work", ".gq", ".tk")
     private val URL_SHORTENERS = listOf("bit.ly", "tinyurl.com", "t.co", "goo.gl", "is.gd", "cutt.ly")
     private val URGENCY_WORDS = listOf(
         "verify now", "act now", "urgent", "suspended", "locked", "claim your",
-        "winner", "congratulations", "limited time", "click here immediately"
+        "winner", "congratulations", "limited time", "click here immediately",
+        "your account will be", "confirm your identity"
     )
-    // Common brands frequently impersonated — flags near-miss spellings.
-    private val IMPERSONATED_BRANDS = listOf("paypal", "facebook", "instagram", "whatsapp", "google", "bank", "amazon")
+    private val IMPERSONATED_BRANDS = listOf("paypal", "facebook", "instagram", "whatsapp", "google", "bank", "amazon", "easypaisa", "jazzcash")
 
     fun analyze(input: String): LinkCheckResult {
-        val text = input.trim().lowercase()
+        val fullText = input.trim()
+        val lowerText = fullText.lowercase()
         val warnings = mutableListOf<String>()
 
-        if (SUSPICIOUS_TLDS.any { text.contains(it) }) {
+        val extractedUrl = URL_REGEX.find(fullText)?.value
+        val urlLower = extractedUrl?.lowercase() ?: lowerText
+
+        if (SUSPICIOUS_TLDS.any { urlLower.contains(it) }) {
             warnings.add("Uses a domain ending commonly associated with scam sites")
         }
-        if (URL_SHORTENERS.any { text.contains(it) }) {
-            warnings.add("This is a shortened link — the real destination is hidden")
+        if (URL_SHORTENERS.any { urlLower.contains(it) }) {
+            warnings.add("This is a shortened link, the real destination is hidden")
         }
-        if (URGENCY_WORDS.any { text.contains(it) }) {
-            warnings.add("Contains urgent/pressure language commonly used in scams")
+        if (URGENCY_WORDS.any { lowerText.contains(it) }) {
+            warnings.add("Contains urgent or pressure language commonly used in scams")
         }
-        if (text.count { it == '-' } >= 3) {
-            warnings.add("Unusually many hyphens in the domain — a common lookalike-URL trick")
+        val hyphenCount = (extractedUrl ?: "").count { it == '-' }
+        if (hyphenCount >= 3) {
+            warnings.add("Unusually many hyphens in the domain, a common lookalike-URL trick")
         }
         IMPERSONATED_BRANDS.forEach { brand ->
-            if (text.contains(brand) && !text.contains("$brand.com") && !text.contains("$brand.co")) {
-                warnings.add("Mentions \"$brand\" but doesn't look like their real official domain")
+            if (lowerText.contains(brand) && extractedUrl != null &&
+                !urlLower.contains("$brand.com") && !urlLower.contains("$brand.co")
+            ) {
+                warnings.add("Mentions \"$brand\" but the link doesn't look like their real official domain")
             }
         }
-        if (Regex("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}").containsMatchIn(text)) {
-            warnings.add("Uses a raw IP address instead of a normal domain name — very unusual for a legitimate site")
+        if (Regex("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}").containsMatchIn(urlLower)) {
+            warnings.add("Uses a raw IP address instead of a normal domain name, very unusual for a legitimate site")
+        }
+        if (extractedUrl == null && URGENCY_WORDS.none { lowerText.contains(it) } && lowerText.isNotBlank()) {
+            warnings.add("No link found in this text, only the wording could be checked")
         }
 
         val risk = when {
-            warnings.size >= 3 -> RiskLevel.HIGH
-            warnings.size >= 1 -> RiskLevel.MEDIUM
+            warnings.count { !it.startsWith("No link found") } >= 3 -> RiskLevel.HIGH
+            warnings.count { !it.startsWith("No link found") } >= 1 -> RiskLevel.MEDIUM
             else -> RiskLevel.LOW
         }
-        return LinkCheckResult(warnings, risk)
+        return LinkCheckResult(warnings, risk, extractedUrl)
     }
 }

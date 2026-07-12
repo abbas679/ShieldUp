@@ -58,6 +58,7 @@ fun ShieldUpNavGraph(
         composable(Routes.VERIFY_CALL) {
             VerifyCallScreen(
                 logRepository = logRepository,
+                contactRepository = contactRepository,
                 onBack = { navController.popBackStack() },
                 onSaved = { navController.navigate(Routes.CALL_LOG) { popUpTo(Routes.HOME) } }
             )

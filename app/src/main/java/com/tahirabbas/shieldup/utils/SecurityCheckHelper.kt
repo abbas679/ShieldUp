@@ -2,10 +2,8 @@ package com.tahirabbas.shieldup.utils
 
 import android.app.KeyguardManager
 import android.content.Context
-import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.net.wifi.WifiManager
 import android.os.Build
 import android.provider.Settings
 import java.io.File
@@ -19,25 +17,39 @@ data class SecurityCheckItem(
 object SecurityCheckHelper {
 
     fun runAllChecks(context: Context): List<SecurityCheckItem> {
+        // Each check is isolated in its own try/catch — if one check fails on a
+        // particular device/OEM, the rest still run and the screen never crashes.
         return listOf(
-            checkScreenLock(context),
-            checkDeveloperOptions(context),
-            checkUnknownSources(context),
-            checkOpenWifi(context),
-            checkRootHeuristic()
+            safeCheck("Screen Lock") { checkScreenLock(context) },
+            safeCheck("USB Debugging") { checkDeveloperOptions(context) },
+            safeCheck("Install Unknown Apps") { checkUnknownSources(context) },
+            safeCheck("WiFi Security") { checkOpenWifi(context) },
+            safeCheck("Root Detection") { checkRootHeuristic() }
         )
     }
 
+    private fun safeCheck(title: String, block: () -> SecurityCheckItem): SecurityCheckItem {
+        return try {
+            block()
+        } catch (e: Exception) {
+            SecurityCheckItem(
+                title = title,
+                passed = true,
+                description = "Couldn't complete this check on your device. This is skipped, not failed."
+            )
+        }
+    }
+
     private fun checkScreenLock(context: Context): SecurityCheckItem {
-        val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        val secure = keyguardManager.isDeviceSecure
+        val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        val secure = keyguardManager?.isDeviceSecure ?: true
         return SecurityCheckItem(
             title = "Screen Lock",
             passed = secure,
             description = if (secure)
                 "A PIN, pattern, or biometric lock is set."
             else
-                "No screen lock is set — anyone who picks up your phone has full access. Set one in Settings > Security."
+                "No screen lock is set. Anyone who picks up your phone has full access. Set one in Settings, then Security."
         )
     }
 
@@ -49,9 +61,9 @@ object SecurityCheckHelper {
             title = "USB Debugging",
             passed = !devEnabled,
             description = if (!devEnabled)
-                "USB debugging is off — good, this is a common attack vector when left on."
+                "USB debugging is off. Good, this is a common attack vector when left on."
             else
-                "USB debugging is ON. Unless you're actively developing, turn this off in Settings > Developer Options."
+                "USB debugging is on. Unless you're actively developing, turn this off in Settings, then Developer Options."
         )
     }
 
@@ -66,30 +78,26 @@ object SecurityCheckHelper {
             title = "Install Unknown Apps",
             passed = !allowed,
             description = if (!allowed)
-                "Installing apps from outside the Play Store is blocked — good default."
+                "Installing apps from outside the Play Store is blocked. Good default."
             else
                 "This app is allowed to install apps from unknown sources. Only keep this on if you specifically need it."
         )
     }
 
     private fun checkOpenWifi(context: Context): SecurityCheckItem {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val network = connectivityManager?.activeNetwork
         val capabilities = network?.let { connectivityManager.getNetworkCapabilities(it) }
         val isWifi = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
 
         if (!isWifi) {
-            return SecurityCheckItem("WiFi Security", true, "Not currently on WiFi — nothing to check right now.")
+            return SecurityCheckItem("WiFi Security", true, "Not currently on WiFi. Nothing to check right now.")
         }
 
-        // Best-effort: Android doesn't expose current network encryption type directly
-        // to normal apps without location permission (SSID/security details are
-        // gated behind ACCESS_FINE_LOCATION for privacy reasons). We keep this
-        // check honest rather than requesting a sensitive permission just for this.
         return SecurityCheckItem(
             title = "WiFi Security",
             passed = true,
-            description = "Connected to WiFi. To check if it's password-protected, tap your network name in Android's WiFi settings — avoid entering passwords on open/public networks."
+            description = "Connected to WiFi. To check if it's password protected, open your WiFi settings and tap the network name. Avoid entering passwords on open or public networks."
         )
     }
 
@@ -100,7 +108,13 @@ object SecurityCheckHelper {
             "/system/sd/xbin/su", "/system/bin/failsafe/su", "/data/local/su",
             "/su/bin/su"
         )
-        val found = suspiciousPaths.any { File(it).exists() }
+        val found = suspiciousPaths.any { path ->
+            try {
+                File(path).exists()
+            } catch (e: Exception) {
+                false
+            }
+        }
         val testKeys = Build.TAGS?.contains("test-keys") == true
 
         val flagged = found || testKeys
@@ -108,9 +122,9 @@ object SecurityCheckHelper {
             title = "Root Detection",
             passed = !flagged,
             description = if (!flagged)
-                "No common root indicators found. (Best-effort check — not a guarantee.)"
+                "No common root indicators found. This is a best-effort check, not a guarantee."
             else
-                "Some signs of a rooted/modified device were found. If you didn't root this device intentionally, that's a serious concern. (Best-effort heuristic — false positives are possible.)"
+                "Some signs of a rooted or modified device were found. If you did not root this device intentionally, treat this as a serious concern. This is a best-effort heuristic, so false positives are possible."
         )
     }
 }
